@@ -98,7 +98,7 @@ export default function Patients() {
     first_name: "",
     last_name: "",
     date_of_birth: "",
-    sex: "M",
+    gender: "unknown",
     contact_phone: "",
     contact_email: "",
   });
@@ -106,7 +106,7 @@ export default function Patients() {
     first_name: "",
     last_name: "",
     date_of_birth: "",
-    sex: "M",
+    gender: "unknown",
     contact_phone: "",
     contact_email: "",
   });
@@ -136,7 +136,7 @@ export default function Patients() {
         first_name: "",
         last_name: "",
         date_of_birth: "",
-        sex: "M",
+        gender: "unknown",
         contact_phone: "",
         contact_email: "",
       });
@@ -150,8 +150,8 @@ export default function Patients() {
     setEditFormData({
       first_name: patient.first_name || "",
       last_name: patient.last_name || "",
-      date_of_birth: patient.date_of_birth || "",
-      sex: patient.gender === "male" ? "M" : patient.gender === "female" ? "F" : "O",
+      date_of_birth: patient.date_of_birth ? patient.date_of_birth.split('T')[0] : "",
+      gender: patient.gender || "unknown",
       contact_phone: patient.contact_phone || "",
       contact_email: patient.contact_email || "",
     });
@@ -162,7 +162,14 @@ export default function Patients() {
     e.preventDefault();
     if (!selectedPatient) return;
     try {
-      await updatePatient.mutateAsync({ id: selectedPatient.id, data: editFormData });
+      // Filter out empty strings - only send fields with actual values
+      const cleanedData: Record<string, any> = {};
+      Object.entries(editFormData).forEach(([key, value]) => {
+        if (value !== "" && value !== null && value !== undefined) {
+          cleanedData[key] = value;
+        }
+      });
+      await updatePatient.mutateAsync({ id: selectedPatient.id, data: cleanedData });
       toast.success("Patient updated successfully!");
       setShowEditDialog(false);
       setSelectedPatient(null);
@@ -455,16 +462,17 @@ export default function Patients() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sex">Sex *</Label>
+                  <Label htmlFor="gender">Gender</Label>
                   <select
-                    id="sex"
+                    id="gender"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={formData.sex}
-                    onChange={(e) => setFormData({ ...formData, sex: e.target.value })}
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                   >
-                    <option value="M">Male</option>
-                    <option value="F">Female</option>
-                    <option value="O">Other</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="unknown">Unknown</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -553,16 +561,17 @@ export default function Patients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit_sex">Sex</Label>
+                  <Label htmlFor="edit_gender">Gender</Label>
                   <select
-                    id="edit_sex"
+                    id="edit_gender"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={editFormData.sex}
-                    onChange={(e) => setEditFormData({ ...editFormData, sex: e.target.value })}
+                    value={editFormData.gender}
+                    onChange={(e) => setEditFormData({ ...editFormData, gender: e.target.value })}
                   >
-                    <option value="M">Male</option>
-                    <option value="F">Female</option>
-                    <option value="O">Other</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="unknown">Unknown</option>
                   </select>
                 </div>
               </div>
