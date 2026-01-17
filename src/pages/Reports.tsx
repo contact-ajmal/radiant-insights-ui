@@ -12,6 +12,7 @@ import {
   TrendingDown,
   Minus,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { useFinalizeReport } from "@/hooks/useAPI";
+import { reportsAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 const structuredFindings = [
   {
@@ -100,6 +104,31 @@ IMPRESSION:
 export default function Reports() {
   const [reportText, setReportText] = useState(narrativeReport);
   const [isEditing, setIsEditing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [currentReportId] = useState("demo-report-1"); // Demo report ID
+
+  const finalizeReport = useFinalizeReport();
+
+  const handleApproveReport = async () => {
+    try {
+      await finalizeReport.mutateAsync(currentReportId);
+      toast.success("Report approved and finalized!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve report");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      await reportsAPI.exportPDF(currentReportId);
+      toast.success("PDF exported successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to export PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getChangeIcon = (change: string) => {
     switch (change) {
@@ -140,12 +169,29 @@ export default function Reports() {
             <RefreshCw className="w-4 h-4" />
             Re-analyze
           </Button>
-          <Button variant="outline" className="gap-2">
-            <Download className="w-4 h-4" />
-            Export
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={handleExportPDF}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            Export PDF
           </Button>
-          <Button className="gap-2 bg-status-success hover:bg-status-success/90">
-            <CheckCircle2 className="w-4 h-4" />
+          <Button
+            className="gap-2 bg-status-success hover:bg-status-success/90"
+            onClick={handleApproveReport}
+            disabled={finalizeReport.isPending}
+          >
+            {finalizeReport.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
             Approve Report
           </Button>
         </div>

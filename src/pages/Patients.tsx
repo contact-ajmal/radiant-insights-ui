@@ -10,6 +10,8 @@ import {
   FileText,
   MoreHorizontal,
   Loader2,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,8 +41,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { usePatients, useCreatePatient } from "@/hooks/useAPI";
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient } from "@/hooks/useAPI";
 import { toast } from "sonner";
 
 // Helper function to calculate age from date of birth
@@ -77,8 +90,19 @@ export default function Patients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showProfile, setShowProfile] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [formData, setFormData] = useState({
     patient_id: "",
+    first_name: "",
+    last_name: "",
+    date_of_birth: "",
+    sex: "M",
+    contact_phone: "",
+    contact_email: "",
+  });
+  const [editFormData, setEditFormData] = useState({
     first_name: "",
     last_name: "",
     date_of_birth: "",
@@ -89,8 +113,10 @@ export default function Patients() {
 
   const { data: patientsData, isLoading, isError } = usePatients();
   const createPatient = useCreatePatient();
+  const updatePatient = useUpdatePatient();
+  const deletePatient = useDeletePatient();
 
-  const patients = patientsData || [];
+  const patients = (patientsData || []) as any[];
 
   // Filter patients based on search query
   const filteredPatients = patients.filter((patient: any) =>
@@ -116,6 +142,44 @@ export default function Patients() {
       });
     } catch (error: any) {
       toast.error(error.message || "Failed to create patient");
+    }
+  };
+
+  const handleEditPatient = (patient: any) => {
+    setSelectedPatient(patient);
+    setEditFormData({
+      first_name: patient.first_name || "",
+      last_name: patient.last_name || "",
+      date_of_birth: patient.date_of_birth || "",
+      sex: patient.gender === "male" ? "M" : patient.gender === "female" ? "F" : "O",
+      contact_phone: patient.contact_phone || "",
+      contact_email: patient.contact_email || "",
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleUpdatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient) return;
+    try {
+      await updatePatient.mutateAsync({ id: selectedPatient.id, data: editFormData });
+      toast.success("Patient updated successfully!");
+      setShowEditDialog(false);
+      setSelectedPatient(null);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update patient");
+    }
+  };
+
+  const handleDeletePatient = async () => {
+    if (!selectedPatient) return;
+    try {
+      await deletePatient.mutateAsync(selectedPatient.id);
+      toast.success("Patient deleted successfully!");
+      setShowDeleteDialog(false);
+      setSelectedPatient(null);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete patient");
     }
   };
 
@@ -218,22 +282,35 @@ export default function Patients() {
                           Active
                         </Badge>
                       </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Profile</DropdownMenuItem>
-                          <DropdownMenuItem>Create Study</DropdownMenuItem>
-                          <DropdownMenuItem>View Reports</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowProfile(true); }}>
+                              View Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditPatient(patient); }}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit Patient
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>Create Study</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); setSelectedPatient(patient); setShowDeleteDialog(true); }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete Patient
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -288,13 +365,12 @@ export default function Patients() {
                   {selectedPatient.timeline.map((item, i) => (
                     <div key={i} className="flex items-start gap-3">
                       <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          item.type === "study"
-                            ? "bg-accent/10"
-                            : item.type === "report"
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.type === "study"
+                          ? "bg-accent/10"
+                          : item.type === "report"
                             ? "bg-status-success/10"
                             : "bg-status-info/10"
-                        }`}
+                          }`}
                       >
                         {item.type === "study" ? (
                           <Activity className="w-4 h-4 text-accent" />
@@ -434,6 +510,133 @@ export default function Patients() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Patient Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>
+              Update patient information.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdatePatient}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_first_name">First Name *</Label>
+                  <Input
+                    id="edit_first_name"
+                    value={editFormData.first_name}
+                    onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_last_name">Last Name *</Label>
+                  <Input
+                    id="edit_last_name"
+                    value={editFormData.last_name}
+                    onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_date_of_birth">Date of Birth</Label>
+                  <Input
+                    id="edit_date_of_birth"
+                    type="date"
+                    value={editFormData.date_of_birth}
+                    onChange={(e) => setEditFormData({ ...editFormData, date_of_birth: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_sex">Sex</Label>
+                  <select
+                    id="edit_sex"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={editFormData.sex}
+                    onChange={(e) => setEditFormData({ ...editFormData, sex: e.target.value })}
+                  >
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    <option value="O">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_contact_phone">Phone</Label>
+                  <Input
+                    id="edit_contact_phone"
+                    value={editFormData.contact_phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, contact_phone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_contact_email">Email</Label>
+                  <Input
+                    id="edit_contact_email"
+                    type="email"
+                    value={editFormData.contact_email}
+                    onChange={(e) => setEditFormData({ ...editFormData, contact_email: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEditDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updatePatient.isPending}>
+                {updatePatient.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Patient Confirmation */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedPatient?.first_name} {selectedPatient?.last_name}?
+              This action cannot be undone and will remove all associated studies and reports.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeletePatient}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletePatient.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

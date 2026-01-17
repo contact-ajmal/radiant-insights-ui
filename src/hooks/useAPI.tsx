@@ -62,6 +62,26 @@ export const useCreatePatient = () => {
   });
 };
 
+export const useUpdatePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => patientsAPI.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+};
+
+export const useDeletePatient = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => patientsAPI.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+    },
+  });
+};
+
 // Studies
 export const useStudiesByPatient = (patientId: string) => {
   return useQuery({
@@ -138,6 +158,16 @@ export const useCreateReport = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: reportsAPI.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+  });
+};
+
+export const useFinalizeReport = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => reportsAPI.finalize(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] });
     },
