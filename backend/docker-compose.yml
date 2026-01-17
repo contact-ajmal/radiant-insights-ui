@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: .
+    container_name: radiantai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MODE=online
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=radiantai
+      - POSTGRES_USER=radiantai
+      - POSTGRES_PASSWORD=changeme
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./models:/app/models
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # PostgreSQL Database (for online mode)
+  db:
+    image: postgres:15-alpine
+    container_name: radiantai-db
+    environment:
+      - POSTGRES_DB=radiantai
+      - POSTGRES_USER=radiantai
+      - POSTGRES_PASSWORD=changeme
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Frontend (optional - if running together)
+  frontend:
+    image: nginx:alpine
+    container_name: radiantai-frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ../dist:/usr/share/nginx/html
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

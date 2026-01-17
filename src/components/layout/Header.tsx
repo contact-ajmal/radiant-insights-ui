@@ -1,4 +1,6 @@
-import { Search, ChevronDown, Wifi, WifiOff, Cpu, User, Bell, Settings } from "lucide-react";
+import { Search, ChevronDown, Wifi, WifiOff, Cpu, User, Bell, Settings, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +16,13 @@ import { useState } from "react";
 
 export function Header() {
   const [isOnline, setIsOnline] = useState(true);
+  const { logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="h-16 border-b border-border bg-card px-6 flex items-center justify-between sticky top-0 z-50">
@@ -89,8 +98,8 @@ export function Header() {
                 <User className="w-4 h-4 text-primary-foreground" />
               </div>
               <div className="flex flex-col items-start">
-                <span className="text-sm font-medium">Dr. Sarah Chen</span>
-                <span className="text-[10px] text-muted-foreground">Radiologist</span>
+                <span className="text-sm font-medium">{user?.full_name || user?.username || "User"}</span>
+                <span className="text-[10px] text-muted-foreground">{user?.role || "Radiologist"}</span>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Button>
@@ -107,7 +116,10 @@ export function Header() {
               Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">Sign out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

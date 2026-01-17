@@ -1,0 +1,13 @@
+# Minimal requirements for quick startup
+
+fastapi
+uvicorn
+python-multipart
+sqlalchemy
+aiosqlite
+pydantic
+pydantic-settings
+python-dotenv
+httpx
+aiofiles
+python-dateutil

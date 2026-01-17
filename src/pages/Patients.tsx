@@ -9,6 +9,7 @@ import {
   Activity,
   FileText,
   MoreHorizontal,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,15 +30,29 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { usePatients, useCreatePatient } from "@/hooks/useAPI";
+import { toast } from "sonner";
 
-const patients = [
-  { id: "PT-001", name: "John Smith", age: 65, sex: "M", lastImaging: "2024-01-15", studies: 4, status: "active" },
-  { id: "PT-002", name: "Maria Garcia", age: 48, sex: "F", lastImaging: "2024-01-14", studies: 2, status: "active" },
-  { id: "PT-003", name: "Robert Johnson", age: 72, sex: "M", lastImaging: "2024-01-10", studies: 7, status: "active" },
-  { id: "PT-004", name: "Sarah Williams", age: 34, sex: "F", lastImaging: "2024-01-08", studies: 1, status: "pending" },
-  { id: "PT-005", name: "Michael Brown", age: 56, sex: "M", lastImaging: "2024-01-05", studies: 3, status: "active" },
-  { id: "PT-006", name: "Emily Davis", age: 41, sex: "F", lastImaging: "2024-01-03", studies: 2, status: "archived" },
-];
+// Helper function to calculate age from date of birth
+function calculateAge(dob: string): number {
+  const birthDate = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
 
 const selectedPatient = {
   id: "PT-001",
@@ -61,6 +76,67 @@ const selectedPatient = {
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showProfile, setShowProfile] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [formData, setFormData] = useState({
+    patient_id: "",
+    first_name: "",
+    last_name: "",
+    date_of_birth: "",
+    sex: "M",
+    contact_phone: "",
+    contact_email: "",
+  });
+
+  const { data: patientsData, isLoading, isError } = usePatients();
+  const createPatient = useCreatePatient();
+
+  const patients = patientsData || [];
+
+  // Filter patients based on search query
+  const filteredPatients = patients.filter((patient: any) =>
+    `${patient.first_name} ${patient.last_name} ${patient.patient_id}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  );
+
+  const handleCreatePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await createPatient.mutateAsync(formData);
+      toast.success("Patient created successfully!");
+      setShowCreateDialog(false);
+      setFormData({
+        patient_id: "",
+        first_name: "",
+        last_name: "",
+        date_of_birth: "",
+        sex: "M",
+        contact_phone: "",
+        contact_email: "",
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create patient");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <div className="text-center">
+          <p className="text-destructive">Failed to load patients</p>
+          <p className="text-sm text-muted-foreground mt-2">Please try refreshing the page</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -72,7 +148,10 @@ export default function Patients() {
             Manage patient records and imaging studies
           </p>
         </div>
-        <Button className="gap-2 bg-primary hover:bg-primary/90">
+        <Button
+          className="gap-2 bg-primary hover:bg-primary/90"
+          onClick={() => setShowCreateDialog(true)}
+        >
           <Plus className="w-4 h-4" />
           Add Patient
         </Button>
@@ -113,33 +192,32 @@ export default function Patients() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {patients.map((patient) => (
-                  <TableRow
-                    key={patient.id}
-                    className="cursor-pointer hover:bg-secondary/50"
-                    onClick={() => setShowProfile(true)}
-                  >
-                    <TableCell className="font-mono text-sm">{patient.id}</TableCell>
-                    <TableCell className="font-medium">{patient.name}</TableCell>
-                    <TableCell>{patient.age}</TableCell>
-                    <TableCell>{patient.sex}</TableCell>
-                    <TableCell>{patient.lastImaging}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{patient.studies}</Badge>
+                {filteredPatients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      {searchQuery ? "No patients match your search" : "No patients found"}
                     </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={
-                          patient.status === "active"
-                            ? "bg-status-success/10 text-status-success border-status-success/20"
-                            : patient.status === "pending"
-                            ? "bg-status-warning/10 text-status-warning border-status-warning/20"
-                            : "bg-muted text-muted-foreground"
-                        }
-                      >
-                        {patient.status}
-                      </Badge>
-                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPatients.map((patient: any) => (
+                    <TableRow
+                      key={patient.id}
+                      className="cursor-pointer hover:bg-secondary/50"
+                      onClick={() => setShowProfile(true)}
+                    >
+                      <TableCell className="font-mono text-sm">{patient.patient_id}</TableCell>
+                      <TableCell className="font-medium">{patient.first_name} {patient.last_name}</TableCell>
+                      <TableCell>{calculateAge(patient.date_of_birth)}</TableCell>
+                      <TableCell>{patient.gender === 'male' ? 'M' : patient.gender === 'female' ? 'F' : 'U'}</TableCell>
+                      <TableCell>{patient.updated_at ? new Date(patient.updated_at).toLocaleDateString() : '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{patient.study_count || 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className="bg-status-success/10 text-status-success border-status-success/20">
+                          Active
+                        </Badge>
+                      </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -155,7 +233,8 @@ export default function Patients() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -242,6 +321,119 @@ export default function Patients() {
           </Card>
         )}
       </div>
+
+      {/* Create Patient Dialog */}
+      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Patient</DialogTitle>
+            <DialogDescription>
+              Enter patient information to create a new record.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreatePatient}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="patient_id">Patient ID *</Label>
+                  <Input
+                    id="patient_id"
+                    value={formData.patient_id}
+                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                    placeholder="P001"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date_of_birth">Date of Birth *</Label>
+                  <Input
+                    id="date_of_birth"
+                    type="date"
+                    value={formData.date_of_birth}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First Name *</Label>
+                  <Input
+                    id="first_name"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    placeholder="John"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last Name *</Label>
+                  <Input
+                    id="last_name"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    placeholder="Doe"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sex">Sex *</Label>
+                  <select
+                    id="sex"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.sex}
+                    onChange={(e) => setFormData({ ...formData, sex: e.target.value })}
+                  >
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                    <option value="O">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="contact_phone">Phone</Label>
+                  <Input
+                    id="contact_phone"
+                    value={formData.contact_phone}
+                    onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact_email">Email</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  value={formData.contact_email}
+                  onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                  placeholder="patient@example.com"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowCreateDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createPatient.isPending}>
+                {createPatient.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Patient"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -11,12 +11,16 @@ import {
   CheckCircle2,
   ArrowRight,
   Calendar,
+  Loader2,
 } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useHealthCheck, useConfig, usePatients } from "@/hooks/useAPI";
+import { useAuth } from "@/hooks/useAuth";
+import { APIStatus } from "@/components/APIStatus";
 
 const recentReports = [
   { id: "RPT-001", patient: "John Smith", study: "Chest CT", status: "complete", time: "2 hours ago" },
@@ -25,14 +29,30 @@ const recentReports = [
   { id: "RPT-004", patient: "Sarah Williams", study: "Spine MRI", status: "review", time: "6 hours ago" },
 ];
 
-const systemHealth = [
-  { label: "MedGemma Engine", status: "online" as const, icon: Brain },
-  { label: "DICOM Server", status: "online" as const, icon: Server },
-  { label: "Local Storage", status: "online" as const, icon: HardDrive },
-  { label: "GPU Inference", status: "online" as const, icon: Cpu },
-];
-
 export default function Dashboard() {
+  const { data: healthData, isLoading: healthLoading, isError: healthError } = useHealthCheck();
+  const { data: configData, isLoading: configLoading } = useConfig();
+  const { data: patientsData } = usePatients();
+  const { user } = useAuth();
+
+  const isLoading = healthLoading || configLoading;
+  const isOnline = healthData?.status === "healthy";
+  const mode = healthData?.mode || configData?.mode || "offline";
+
+  // Calculate real statistics
+  const patients = patientsData || [];
+  const totalPatients = patients.length;
+  const totalStudies = patients.reduce((sum: number, p: any) => sum + (p.study_count || 0), 0);
+  const activePatients = patients.filter((p: any) => p.study_count > 0).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -40,11 +60,11 @@ export default function Dashboard() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Welcome back, Dr. Chen. Here's your radiology overview.
+            Welcome back, {user?.full_name || user?.username || "Doctor"}. Here's your radiology overview.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <StatusIndicator status="online" label="All Systems Operational" icon={CheckCircle2} />
+          <APIStatus />
           <Button className="gap-2 bg-primary hover:bg-primary/90">
             <Brain className="w-4 h-4" />
             New Analysis
@@ -55,31 +75,29 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Active Studies"
-          value={24}
-          subtitle="8 require attention"
+          title="Total Patients"
+          value={totalPatients}
+          subtitle={`${activePatients} with studies`}
           icon={Activity}
-          trend={{ value: 12, label: "this week" }}
         />
         <StatCard
-          title="Pending Analyses"
-          value={7}
-          subtitle="Est. 15 min total"
-          icon={Brain}
+          title="Total Studies"
+          value={totalStudies}
+          subtitle={totalStudies === 0 ? "No studies yet" : "Across all patients"}
+          icon={FileText}
           variant="accent"
         />
         <StatCard
-          title="Reports Generated"
-          value={156}
-          subtitle="This month"
-          icon={FileText}
-          trend={{ value: 23, label: "vs last month" }}
+          title="Pending Analyses"
+          value={0}
+          subtitle="All processed"
+          icon={Brain}
           variant="success"
         />
         <StatCard
-          title="Avg. Processing Time"
-          value="2.4 min"
-          subtitle="Per study"
+          title="System Mode"
+          value={mode.toUpperCase()}
+          subtitle={mode === "offline" ? "Local inference" : "Cloud API"}
           icon={Clock}
         />
       </div>
@@ -147,18 +165,45 @@ export default function Dashboard() {
               <CardTitle className="text-lg font-medium">System Health</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {systemHealth.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                  <StatusIndicator status={item.status} label="Online" />
+              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Brain className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">MedGemma Engine</span>
                 </div>
-              ))}
+                <StatusIndicator
+                  status={healthData?.components?.medgemma ? "online" : "offline"}
+                  label={healthData?.components?.medgemma ? "Online" : "Offline"}
+                />
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Server className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Database</span>
+                </div>
+                <StatusIndicator
+                  status={healthData?.components?.database ? "online" : "offline"}
+                  label={healthData?.components?.database ? "Online" : "Offline"}
+                />
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <HardDrive className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Storage</span>
+                </div>
+                <StatusIndicator
+                  status={healthData?.components?.storage ? "online" : "offline"}
+                  label={healthData?.components?.storage ? "Online" : "Offline"}
+                />
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-secondary/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <Cpu className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Mode</span>
+                </div>
+                <Badge variant="secondary" className="capitalize">
+                  {mode}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
 

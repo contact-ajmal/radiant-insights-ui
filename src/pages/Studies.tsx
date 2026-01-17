@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Link2,
+  Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +20,73 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
+import { usePatients, useUploadStudy } from "@/hooks/useAPI";
+import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Studies() {
-  const [hasFile, setHasFile] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [attachPrior, setAttachPrior] = useState(false);
+  const [studyDescription, setStudyDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const { data: patientsData } = usePatients();
+  const uploadStudy = useUploadStudy();
+
+  const patients = patientsData || [];
+  const hasFile = selectedFiles.length > 0;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(Array.from(files));
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      setSelectedFiles(Array.from(files));
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles(files => files.filter((_, i) => i !== index));
+  };
+
+  const handleUpload = async () => {
+    if (!selectedPatientId) {
+      toast.error("Please select a patient");
+      return;
+    }
+    if (selectedFiles.length === 0) {
+      toast.error("Please select DICOM files");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadStudy.mutateAsync({
+        patientId: selectedPatientId,
+        files: selectedFiles,
+      });
+      toast.success("Study uploaded successfully!");
+      setSelectedFiles([]);
+      setStudyDescription("");
+    } catch (error: any) {
+      toast.error(error.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -50,47 +115,92 @@ export default function Studies() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div
-                className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-                  hasFile
-                    ? "border-status-success bg-status-success/5"
-                    : "border-border hover:border-accent hover:bg-accent/5"
-                }`}
-              >
-                {hasFile ? (
-                  <div className="space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-status-success/10 mx-auto flex items-center justify-center">
-                      <CheckCircle2 className="w-8 h-8 text-status-success" />
+              <div className="space-y-4">
+                {/* Patient Selection */}
+                <div className="space-y-2">
+                  <Label htmlFor="patient">Select Patient *</Label>
+                  <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a patient..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {patients.map((patient: any) => (
+                        <SelectItem key={patient.id} value={patient.id}>
+                          {patient.patient_id} - {patient.first_name} {patient.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* File Drop Zone */}
+                <div
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
+                    hasFile
+                      ? "border-status-success bg-status-success/5"
+                      : "border-border hover:border-accent hover:bg-accent/5"
+                  }`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('file-input')?.click()}
+                >
+                  {hasFile ? (
+                    <div className="space-y-3">
+                      <div className="w-16 h-16 rounded-full bg-status-success/10 mx-auto flex items-center justify-center">
+                        <CheckCircle2 className="w-8 h-8 text-status-success" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{selectedFiles.length} file(s) selected</p>
+                        <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between text-sm text-muted-foreground bg-secondary/50 px-3 py-1 rounded">
+                              <span className="truncate flex-1">{file.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 ml-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveFile(index);
+                                }}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <Button variant="outline" size="sm">
+                        Add More Files
+                      </Button>
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground">Study Uploaded Successfully</p>
-                      <p className="text-sm text-muted-foreground">chest_ct_20240115.dcm</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setHasFile(false)}>
-                      Replace File
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-secondary mx-auto flex items-center justify-center">
-                      <Upload className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Drag and drop DICOM files here
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="w-16 h-16 rounded-full bg-secondary mx-auto flex items-center justify-center">
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          Drag and drop DICOM files here
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          or click to browse your files
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Supports: .dcm, .dicom, .zip (DICOM archive)
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        or click to browse your files
-                      </p>
                     </div>
-                    <Button variant="outline" onClick={() => setHasFile(true)}>
-                      Select Files
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Supports: .dcm, .dicom, .zip (DICOM archive)
-                    </p>
-                  </div>
-                )}
+                  )}
+                  <input
+                    id="file-input"
+                    type="file"
+                    multiple
+                    accept=".dcm,.dicom,.zip"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -108,10 +218,12 @@ export default function Studies() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="indication">Clinical Notes</Label>
+                <Label htmlFor="indication">Study Description (Optional)</Label>
                 <Textarea
                   id="indication"
-                  placeholder="Enter clinical indication, symptoms, or relevant patient history..."
+                  value={studyDescription}
+                  onChange={(e) => setStudyDescription(e.target.value)}
+                  placeholder="Enter study description, clinical indication, or notes..."
                   className="min-h-[120px] resize-none"
                 />
               </div>
@@ -206,14 +318,24 @@ export default function Studies() {
               <Button
                 className="w-full gap-2 bg-accent hover:bg-accent/90"
                 size="lg"
-                disabled={!hasFile}
+                disabled={!hasFile || !selectedPatientId || uploading}
+                onClick={handleUpload}
               >
-                <Brain className="w-5 h-5" />
-                Load Study for Analysis
-                <ArrowRight className="w-4 h-4" />
+                {uploading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Uploading Study...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="w-5 h-5" />
+                    Upload & Process Study
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
               <p className="text-xs text-center text-muted-foreground mt-3">
-                Study will be processed by MedGemma
+                {uploading ? "Processing DICOM files..." : "Study will be processed by MedGemma"}
               </p>
             </CardContent>
           </Card>
