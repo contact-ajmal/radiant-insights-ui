@@ -248,6 +248,12 @@ export const configAPI = {
   get: async () => {
     return apiRequest('/api/config');
   },
+  update: async (settings: any) => {
+    return apiRequest('/api/config', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
 };
 
 // Health check

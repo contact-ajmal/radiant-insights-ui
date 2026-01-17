@@ -28,6 +28,16 @@ export const useConfig = () => {
   });
 };
 
+export const useUpdateConfig = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: configAPI.update,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['config'] });
+    },
+  });
+};
+
 // Patients
 export const usePatients = (params?: any) => {
   return useQuery({

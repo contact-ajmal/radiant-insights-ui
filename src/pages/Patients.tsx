@@ -67,24 +67,16 @@ function calculateAge(dob: string): number {
   return age;
 }
 
-const selectedPatient = {
-  id: "PT-001",
-  name: "John Smith",
-  age: 65,
-  sex: "Male",
-  dob: "1959-03-15",
-  mrn: "MRN-123456",
-  phone: "+1 (555) 123-4567",
-  email: "john.smith@email.com",
-  address: "123 Medical Lane, Healthcare City, HC 12345",
-  timeline: [
-    { date: "2024-01-15", event: "Chest CT - Completed", type: "study" },
-    { date: "2024-01-10", event: "MedGemma Analysis Report", type: "report" },
-    { date: "2024-01-05", event: "Follow-up Scheduled", type: "appointment" },
-    { date: "2023-12-20", event: "Abdominal CT - Completed", type: "study" },
-    { date: "2023-12-15", event: "Initial Consultation", type: "appointment" },
-  ],
-};
+// Helper to format gender for display
+function formatGender(gender: string): string {
+  const genderMap: Record<string, string> = {
+    male: "Male",
+    female: "Female",
+    other: "Other",
+    unknown: "Unknown",
+  };
+  return genderMap[gender] || gender;
+}
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -325,7 +317,7 @@ export default function Patients() {
         </Card>
 
         {/* Patient Profile Panel */}
-        {showProfile && (
+        {showProfile && selectedPatient && (
           <Card className="animate-slide-in-right">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
@@ -342,64 +334,44 @@ export default function Patients() {
                   <User className="w-8 h-8 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg">{selectedPatient.name}</h3>
+                  <h3 className="font-semibold text-lg">{selectedPatient.first_name} {selectedPatient.last_name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedPatient.sex}, {selectedPatient.age} years
+                    {formatGender(selectedPatient.gender)}, {selectedPatient.date_of_birth ? calculateAge(selectedPatient.date_of_birth) : 'N/A'} years
                   </p>
-                  <p className="text-xs text-muted-foreground font-mono">{selectedPatient.mrn}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{selectedPatient.patient_id}</p>
                 </div>
               </div>
 
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date of Birth</span>
-                  <span className="font-medium">{selectedPatient.dob}</span>
+                  <span className="font-medium">{selectedPatient.date_of_birth ? selectedPatient.date_of_birth.split('T')[0] : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Phone</span>
-                  <span className="font-medium">{selectedPatient.phone}</span>
+                  <span className="font-medium">{selectedPatient.contact_phone || 'Not provided'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Email</span>
-                  <span className="font-medium text-xs">{selectedPatient.email}</span>
+                  <span className="font-medium text-xs">{selectedPatient.contact_email || 'Not provided'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Studies</span>
+                  <span className="font-medium">{selectedPatient.study_count || 0}</span>
                 </div>
               </div>
 
-              {/* Clinical Timeline */}
-              <div>
-                <h4 className="font-medium mb-3">Clinical History</h4>
-                <div className="space-y-3">
-                  {selectedPatient.timeline.map((item, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.type === "study"
-                          ? "bg-accent/10"
-                          : item.type === "report"
-                            ? "bg-status-success/10"
-                            : "bg-status-info/10"
-                          }`}
-                      >
-                        {item.type === "study" ? (
-                          <Activity className="w-4 h-4 text-accent" />
-                        ) : item.type === "report" ? (
-                          <FileText className="w-4 h-4 text-status-success" />
-                        ) : (
-                          <Calendar className="w-4 h-4 text-status-info" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{item.event}</p>
-                        <p className="text-xs text-muted-foreground">{item.date}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {/* Actions */}
+              <div className="space-y-2">
+                <Button className="w-full gap-2 bg-accent hover:bg-accent/90">
+                  <Plus className="w-4 h-4" />
+                  Create New Study
+                </Button>
+                <Button variant="outline" className="w-full gap-2" onClick={() => { setShowProfile(false); handleEditPatient(selectedPatient); }}>
+                  <Pencil className="w-4 h-4" />
+                  Edit Patient
+                </Button>
               </div>
-
-              <Button className="w-full gap-2 bg-accent hover:bg-accent/90">
-                <Plus className="w-4 h-4" />
-                Create New Study
-              </Button>
             </CardContent>
           </Card>
         )}

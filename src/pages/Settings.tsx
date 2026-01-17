@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Settings,
   Cpu,
@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Save,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,14 +30,50 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useConfig, useUpdateConfig } from "@/hooks/useAPI";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const [inferenceMode, setInferenceMode] = useState("online");
+  const { data: config, isLoading } = useConfig();
+  const updateConfig = useUpdateConfig();
+
+  const [inferenceMode, setInferenceMode] = useState("offline");
   const [gpuMemory, setGpuMemory] = useState([80]);
   const [batchSize, setBatchSize] = useState([4]);
   const [dataRetention, setDataRetention] = useState("90");
   const [autoSync, setAutoSync] = useState(true);
   const [hipaaMode, setHipaaMode] = useState(true);
+
+  // Load config from API
+  useEffect(() => {
+    if (config) {
+      const cfg = config as any;
+      setInferenceMode(cfg.mode || "offline");
+      setAutoSync(cfg.features?.offline_sync ?? true);
+    }
+  }, [config]);
+
+  const handleSaveSettings = async () => {
+    try {
+      await updateConfig.mutateAsync({
+        mode: inferenceMode,
+        features: {
+          offline_sync: autoSync,
+        },
+      });
+      toast.success("Settings saved successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save settings");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -51,8 +88,12 @@ export default function SettingsPage() {
             Configure RadiantAI and MedGemma preferences
           </p>
         </div>
-        <Button className="gap-2">
-          <Save className="w-4 h-4" />
+        <Button className="gap-2" onClick={handleSaveSettings} disabled={updateConfig.isPending}>
+          {updateConfig.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
           Save Changes
         </Button>
       </div>
