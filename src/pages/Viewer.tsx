@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   ZoomIn,
   ZoomOut,
@@ -20,6 +21,8 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +31,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useStudy } from "@/hooks/useAPI";
 
 const viewerTools = [
   { icon: Move, label: "Pan", key: "pan" },
@@ -42,14 +46,48 @@ const viewerTools = [
 const thumbnails = Array.from({ length: 12 }, (_, i) => i + 1);
 
 export default function Viewer() {
+  const { studyId } = useParams<{ studyId: string }>();
+  const { data: study, isLoading } = useStudy(studyId || "");
+  const isDemoMode = !studyId;
+
   const [activeTool, setActiveTool] = useState("pan");
   const [showAnnotations, setShowAnnotations] = useState(true);
   const [currentSlice, setCurrentSlice] = useState(128);
   const [windowLevel, setWindowLevel] = useState([50]);
   const [windowWidth, setWindowWidth] = useState([400]);
 
+  // Show loading state when fetching study
+  if (studyId && isLoading) {
+    return (
+      <div className="h-[calc(100vh-7rem)] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-accent" />
+          <p className="text-sm text-muted-foreground">Loading study...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-7rem)] flex gap-4 animate-fade-in">
+      {/* Demo Mode Indicator */}
+      {isDemoMode && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50">
+          <Badge variant="secondary" className="bg-status-warning/10 text-status-warning border-status-warning/20 gap-1">
+            <AlertCircle className="w-3 h-3" />
+            Demo Mode - Select a study from Archive to view real data
+          </Badge>
+        </div>
+      )}
+
+      {/* Study Info */}
+      {study && (
+        <div className="absolute top-4 left-32 z-50">
+          <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/20">
+            {(study as any).study_id || (study as any).id} - {(study as any).patient_name || 'Unknown Patient'}
+          </Badge>
+        </div>
+      )}
       {/* Left Thumbnails */}
       <Card className="w-24 flex-shrink-0 overflow-hidden">
         <CardContent className="p-2 h-full overflow-y-auto space-y-2">

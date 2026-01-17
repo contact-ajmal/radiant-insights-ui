@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Archive,
   Download,
@@ -12,6 +13,8 @@ import {
   CheckCircle2,
   Clock,
   RefreshCw,
+  Loader2,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,52 +33,29 @@ import {
 } from "@/components/ui/table";
 import { StatusIndicator } from "@/components/ui/status-indicator";
 import { cn } from "@/lib/utils";
+import { useStudies } from "@/hooks/useAPI";
 
-const archivedStudies = [
+// Mock data as fallback when API returns empty
+const mockStudies = [
   {
-    id: "STD-001",
-    patient: "John Smith",
+    id: "demo-1",
+    study_id: "STD-001",
+    patient_name: "John Smith",
     modality: "CT",
-    bodyPart: "Chest",
-    date: "2024-01-15",
-    status: "synced",
-    hasReport: true,
+    body_part: "Chest",
+    study_date: "2024-01-15",
+    status: "completed",
+    has_report: true,
   },
   {
-    id: "STD-002",
-    patient: "Maria Garcia",
+    id: "demo-2",
+    study_id: "STD-002",
+    patient_name: "Maria Garcia",
     modality: "MRI",
-    bodyPart: "Brain",
-    date: "2024-01-14",
-    status: "synced",
-    hasReport: true,
-  },
-  {
-    id: "STD-003",
-    patient: "Robert Johnson",
-    modality: "CT",
-    bodyPart: "Abdomen",
-    date: "2024-01-10",
-    status: "pending",
-    hasReport: true,
-  },
-  {
-    id: "STD-004",
-    patient: "Sarah Williams",
-    modality: "MRI",
-    bodyPart: "Spine",
-    date: "2024-01-08",
-    status: "synced",
-    hasReport: false,
-  },
-  {
-    id: "STD-005",
-    patient: "Michael Brown",
-    modality: "CT",
-    bodyPart: "Chest",
-    date: "2024-01-05",
-    status: "synced",
-    hasReport: true,
+    body_part: "Brain",
+    study_date: "2024-01-14",
+    status: "completed",
+    has_report: true,
   },
 ];
 
@@ -86,9 +66,14 @@ const exportFormats = [
 ];
 
 export default function ArchivePage() {
+  const navigate = useNavigate();
+  const { data: studiesData, isLoading } = useStudies();
   const [selectedFormat, setSelectedFormat] = useState("pdf");
   const [includeAnnotations, setIncludeAnnotations] = useState(true);
   const [selectedStudies, setSelectedStudies] = useState<string[]>([]);
+
+  // Use API data if available, otherwise show mock data
+  const studies = (studiesData && studiesData.length > 0) ? studiesData : mockStudies;
 
   const toggleStudy = (id: string) => {
     setSelectedStudies((prev) =>
@@ -97,11 +82,15 @@ export default function ArchivePage() {
   };
 
   const toggleAll = () => {
-    if (selectedStudies.length === archivedStudies.length) {
+    if (selectedStudies.length === studies.length) {
       setSelectedStudies([]);
     } else {
-      setSelectedStudies(archivedStudies.map((s) => s.id));
+      setSelectedStudies(studies.map((s: any) => s.id));
     }
+  };
+
+  const handleViewStudy = (studyId: string) => {
+    navigate(`/viewer/${studyId}`);
   };
 
   return (
@@ -149,7 +138,7 @@ export default function ArchivePage() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedStudies.length === archivedStudies.length}
+                      checked={selectedStudies.length === studies.length && studies.length > 0}
                       onCheckedChange={toggleAll}
                     />
                   </TableHead>
@@ -159,54 +148,77 @@ export default function ArchivePage() {
                   <TableHead>Body Part</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Report</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {archivedStudies.map((study) => (
-                  <TableRow key={study.id} className="cursor-pointer hover:bg-secondary/50">
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedStudies.includes(study.id)}
-                        onCheckedChange={() => toggleStudy(study.id)}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-sm">{study.id}</TableCell>
-                    <TableCell className="font-medium">{study.patient}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="bg-accent/10 text-accent border-accent/20"
-                      >
-                        {study.modality}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{study.bodyPart}</TableCell>
-                    <TableCell>{study.date}</TableCell>
-                    <TableCell>
-                      {study.status === "synced" ? (
-                        <div className="flex items-center gap-1.5 text-status-success">
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span className="text-xs">Synced</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-status-warning">
-                          <Clock className="w-4 h-4" />
-                          <span className="text-xs">Pending</span>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {study.hasReport ? (
-                        <Badge className="bg-status-success/10 text-status-success border-status-success/20">
-                          Available
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Pending</Badge>
-                      )}
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Loading studies...</p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : studies.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-8">
+                      <Archive className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+                      <p className="text-sm text-muted-foreground">No studies in archive</p>
+                      <p className="text-xs text-muted-foreground">Upload a study to get started</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  studies.map((study: any) => (
+                    <TableRow
+                      key={study.id}
+                      className="cursor-pointer hover:bg-secondary/50"
+                      onClick={() => handleViewStudy(study.id)}
+                    >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedStudies.includes(study.id)}
+                          onCheckedChange={() => toggleStudy(study.id)}
+                        />
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{study.study_id || study.id}</TableCell>
+                      <TableCell className="font-medium">{study.patient_name || 'Unknown'}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className="bg-accent/10 text-accent border-accent/20"
+                        >
+                          {study.modality || 'CT'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{study.body_part || 'Chest'}</TableCell>
+                      <TableCell>{study.study_date?.split('T')[0] || study.study_date}</TableCell>
+                      <TableCell>
+                        {study.status === "completed" || study.status === "synced" ? (
+                          <div className="flex items-center gap-1.5 text-status-success">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span className="text-xs">Ready</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-status-warning">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-xs">Processing</span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1"
+                          onClick={() => handleViewStudy(study.id)}
+                        >
+                          <Eye className="w-4 h-4" />
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

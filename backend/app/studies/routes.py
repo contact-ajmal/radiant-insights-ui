@@ -178,6 +178,36 @@ async def get_study(study_id: str, db: AsyncSession = Depends(get_db)):
     return study
 
 
+@router.get("/")
+async def list_studies(
+    skip: int = 0,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db)
+):
+    """List all studies"""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    result = await db.execute(
+        select(Study)
+        .options(selectinload(Study.patient))
+        .order_by(Study.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    studies = result.scalars().all()
+    
+    # Enrich with patient name
+    response = []
+    for study in studies:
+        study_dict = {c.name: getattr(study, c.name) for c in study.__table__.columns}
+        if study.patient:
+            study_dict["patient_name"] = f"{study.patient.first_name} {study.patient.last_name}"
+        response.append(study_dict)
+        
+    return response
+
+
 @router.get("/patient/{patient_id}")
 async def list_patient_studies(patient_id: str, db: AsyncSession = Depends(get_db)):
     """List all studies for a patient"""

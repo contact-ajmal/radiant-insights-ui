@@ -135,6 +135,14 @@ export const patientsAPI = {
 
 // Studies API
 export const studiesAPI = {
+  list: async (params?: { skip?: number; limit?: number }) => {
+    const queryParams = new URLSearchParams();
+    if (params?.skip) queryParams.append('skip', params.skip.toString());
+    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const queryString = queryParams.toString();
+    return apiRequest(`/api/studies${queryString ? `?${queryString}` : ''}`);
+  },
+
   upload: async (patientId: string, files: File[]) => {
     const formData = new FormData();
     formData.append('patient_id', patientId);

@@ -11,6 +11,8 @@ import {
   Link2,
   Loader2,
   X,
+  Eye,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useState } from "react";
-import { usePatients, useUploadStudy } from "@/hooks/useAPI";
+import { useNavigate } from "react-router-dom";
+import { usePatients, useUploadStudy, useStudies } from "@/hooks/useAPI";
 import { toast } from "sonner";
 import {
   Select,
@@ -29,8 +32,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function Studies() {
+  const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [attachPrior, setAttachPrior] = useState(false);
@@ -38,9 +50,11 @@ export default function Studies() {
   const [uploading, setUploading] = useState(false);
 
   const { data: patientsData } = usePatients();
+  const { data: studiesData, isLoading: studiesLoading } = useStudies({ limit: 5 });
   const uploadStudy = useUploadStudy();
 
   const patients = patientsData || [];
+  const recentStudies = studiesData || [];
   const hasFile = selectedFiles.length > 0;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,11 +149,10 @@ export default function Studies() {
 
                 {/* File Drop Zone */}
                 <div
-                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${
-                    hasFile
+                  className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${hasFile
                       ? "border-status-success bg-status-success/5"
                       : "border-border hover:border-accent hover:bg-accent/5"
-                  }`}
+                    }`}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={handleDrop}
                   onClick={() => document.getElementById('file-input')?.click()}
@@ -349,6 +362,93 @@ export default function Studies() {
           </div>
         </div>
       </div>
+
+      {/* Recent Studies Section */}
+      <Card className="mt-6">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="w-5 h-5 text-accent" />
+                Recent Studies
+              </CardTitle>
+              <CardDescription>Recently uploaded studies</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigate('/archive')}>
+              View All
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {studiesLoading ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Loading studies...</p>
+            </div>
+          ) : recentStudies.length === 0 ? (
+            <div className="text-center py-8">
+              <FileImage className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="text-sm text-muted-foreground">No studies uploaded yet</p>
+              <p className="text-xs text-muted-foreground">Upload a DICOM study to get started</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Study ID</TableHead>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Modality</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recentStudies.map((study: any) => (
+                  <TableRow
+                    key={study.id}
+                    className="cursor-pointer hover:bg-secondary/50"
+                    onClick={() => navigate(`/viewer/${study.id}`)}
+                  >
+                    <TableCell className="font-mono text-sm">{study.study_id || study.id}</TableCell>
+                    <TableCell>{study.patient_name || 'Unknown'}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/20">
+                        {study.modality || 'CT'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{study.study_date?.split('T')[0] || 'N/A'}</TableCell>
+                    <TableCell>
+                      {study.status === 'completed' ? (
+                        <div className="flex items-center gap-1.5 text-status-success">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span className="text-xs">Ready</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-status-warning">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-xs">Processing</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => navigate(`/viewer/${study.id}`)}
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

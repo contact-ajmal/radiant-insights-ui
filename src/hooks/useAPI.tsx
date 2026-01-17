@@ -93,6 +93,13 @@ export const useDeletePatient = () => {
 };
 
 // Studies
+export const useStudies = (params?: { skip?: number; limit?: number }) => {
+  return useQuery({
+    queryKey: ['studies', params],
+    queryFn: () => studiesAPI.list(params),
+  });
+};
+
 export const useStudiesByPatient = (patientId: string) => {
   return useQuery({
     queryKey: ['studies', patientId],
