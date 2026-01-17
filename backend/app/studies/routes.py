@@ -59,11 +59,13 @@ async def upload_dicom_study(
         study_meta = processor.extract_study_metadata(first_dcm)
 
         # Create or get study
+        from datetime import datetime
+        
         study = Study(
-            study_instance_uid=study_meta["study_instance_uid"],
+            study_instance_uid=study_meta["study_instance_uid"] or str(uuid.uuid4()),
             patient_id=patient_id,
             accession_number=study_meta["accession_number"],
-            study_date=study_meta["study_date"],
+            study_date=study_meta["study_date"] or datetime.utcnow(),
             study_time=study_meta["study_time"],
             study_description=study_meta["study_description"],
             modality=study_meta["modality"],
