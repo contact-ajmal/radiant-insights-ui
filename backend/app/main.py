@@ -141,6 +141,22 @@ async def get_config():
     }
 
 
+@app.put("/api/config")
+async def update_config(config_update: dict):
+    """Update configuration (demo endpoint - in production would persist to DB/file)"""
+    # In a real implementation, this would:
+    # 1. Validate the config_update
+    # 2. Persist to database or config file
+    # 3. Possibly reload settings
+    # For now, we just acknowledge the update
+    logger.info("config_updated", update=config_update)
+    return {
+        "status": "success",
+        "message": "Configuration updated successfully",
+        "applied": config_update
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
